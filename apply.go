@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/inconshreveable/go-update/internal/osext"
+	"github.com/strongdm/go-update/internal/osext"
 )
 
 var (
@@ -103,6 +103,9 @@ func Apply(update io.Reader, opts Options) error {
 
 	// get the directory the executable exists in
 	updateDir := filepath.Dir(opts.TargetPath)
+	if opts.TemporaryPath != "" {
+		updateDir = opts.TemporaryPath
+	}
 	filename := filepath.Base(opts.TargetPath)
 
 	// Copy the contents of newbinary to a new executable file
@@ -194,6 +197,11 @@ type rollbackErr struct {
 }
 
 type Options struct {
+	// TemporaryPath defines the path that is used to apply the update
+	// before moving the final result to the TargetPath location.
+	// The emptry string means 'the executable file of the running program'.
+	TemporaryPath string
+
 	// TargetPath defines the path to the file to update.
 	// The emptry string means 'the executable file of the running program'.
 	TargetPath string
@@ -236,6 +244,9 @@ func (o *Options) CheckPermissions() error {
 	}
 
 	fileDir := filepath.Dir(path)
+	if o.TemporaryPath != "" {
+		fileDir = o.TemporaryPath
+	}
 	fileName := filepath.Base(path)
 
 	// attempt to open a file in the file's directory
