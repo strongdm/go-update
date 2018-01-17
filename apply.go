@@ -138,14 +138,12 @@ func Apply(update io.Reader, opts Options) error {
 	_ = os.Remove(oldPath)
 
 	// move the existing executable to a new file in the same directory
-	err = os.Rename(opts.TargetPath, oldPath)
-	if err != nil {
+	if err := moveFile(opts.TargetPath, oldPath); err != nil {
 		return err
 	}
 
-	// move the new exectuable in to become the new program
-	err = os.Rename(newPath, opts.TargetPath)
-
+	// move the new executable in to become the new program
+	err = moveFile(newPath, opts.TargetPath)
 	if err != nil {
 		// move unsuccessful
 		//
@@ -154,7 +152,7 @@ func Apply(update io.Reader, opts Options) error {
 		// binary to take its place. That means there is no file where the current executable binary
 		// used to be!
 		// Try to rollback by restoring the old binary to its original path.
-		rerr := os.Rename(oldPath, opts.TargetPath)
+		rerr := moveFile(oldPath, opts.TargetPath)
 		if rerr != nil {
 			return &rollbackErr{err, rerr}
 		}
@@ -173,6 +171,33 @@ func Apply(update io.Reader, opts Options) error {
 	}
 
 	return nil
+}
+
+func moveFile(from, to string) error {
+	fromInfo, err := os.Stat(from)
+	if err != nil {
+		return err
+	}
+	fromFd, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	defer fromFd.Close()
+
+	toFd, err := os.Create(to)
+	if err != nil {
+		return err
+	}
+	defer toFd.Close()
+
+	if _, err := io.Copy(toFd, fromFd); err != nil {
+		return err
+	}
+
+	fromFd.Close()
+	toFd.Close()
+	os.Chmod(to, fromInfo.Mode())
+	return os.Remove(from)
 }
 
 // RollbackError takes an error value returned by Apply and returns the error, if any,
